@@ -10,27 +10,27 @@ import (
 	_ "net/http/pprof"
 	"net/mail"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-
 )
 
 var emails = make(chan string, 500)
 var dataToZinc = make(chan Email, 500)
 
+// Email is a struct that stores the information extracted from an email message.
+type Email struct {
+	Date    string `json:"date"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+}
+
 var waG sync.WaitGroup
 
 // create a struct to store the data
-type Email struct {
-	ID        string
-	MessageId string
-	Date      string
-	From      string
-	To        string
-	Subject   string
-	Body      string
-}
 
 func main() {
 	//start profiling
@@ -39,80 +39,66 @@ func main() {
 	}()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "./unarchivo", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "./allen-p", "path to the root directory")
 	flag.Parse()
 
-	rootDir, err := os.Open(rootDirPath)
+	createIndex()
+
+	// Start the goroutines to process the emails and insert the data into the search engine
+	go findsDir(rootDirPath, emails)
+	go processEmails(emails, dataToZinc)
+	//
+	formatData(dataToZinc)
+
+	waG.Wait()
+}
+
+func findsDir(dir string, emails chan string) {
+	// Recursively searches for files in a given directory and its subdirectories, and sends the file paths to a channel for further processing.
+
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	findsDir(rootDir)
-	// create index
-	createIndex()
-
-	
-	go processEmails(emails)
-
-	go insertData(dataToZinc)
-
-	os.Stdout.Sync()
-
-	waG.Wait()
-}
-
-func findsDir(dir *os.File) {
-	// Recursively searches for files in a given directory and its subdirectories, and sends the file paths to a channel for further processing.
-
-	// Inputs:
-	// - dir: A pointer to an os.File representing the directory to search.
-
-	// Outputs:
-	// - None.
-	files, err := dir.Readdir(-1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_ = dir.Close()
-
-	total := 0
-	// Iterate over the files in the directory
 	for _, file := range files {
-		// process each file or directory
-		if file.IsDir() {
-			// if the file is a directory, open it and call the function recursively
-			subDir, err := os.Open(dir.Name() + "/" + file.Name())
-			if err != nil {
-				log.Fatal(err)
-			}
+		fileInfo, err := file.Info()
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
-			findsDir(subDir)
+		if fileInfo.IsDir() {
+			findsDir(filepath.Join(dir, file.Name()), emails)
 		} else {
-
-			total++
-			waG.Add(1)
-			emails <- dir.Name() + "/" + file.Name()
-
+			emails <- filepath.Join(dir, file.Name())
 		}
 	}
-
 }
 
-func processEmails(emails chan string) {
-	// processEmails processes emails from the 'emails' channel.
-	// It reads each email from the channel, parses it using the 'parseEmail' function,
-	// and sends the parsed email data to the 'dataToZinc' channel.
-	// The function also keeps track of the number of processed emails using the 'times' variable.
+/**
+ * processEmails processes the emails and extracts the relevant information from them.
+ * @param {chan string} emails - A channel containing the paths to the email messages.
+ * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
+ * @returns {void}
+ */
+func processEmails(emails chan string, dataToZinc chan Email) {
 
+	
 	for email := range emails {
-		dataToZinc <- parseEmail(email)
-		waG.Done()
+		emailData,err := parseEmail(email)
+		if err != nil {
+			log.Fatal(err)
+			continue
+		}
+		dataToZinc <- emailData
+
 	}
-	fmt.Println("hahahah",len(dataToZinc))
+
 }
 
-func parseEmail(email string) Email {
+func parseEmail(email string)  (Email, error) {
 	/*
 		parseEmail parses an email message and extracts relevant information such as the message ID, date, sender, recipient, subject, and body.
 
@@ -125,19 +111,19 @@ func parseEmail(email string) Email {
 
 	fileInfo, err := os.ReadFile(email)
 	if err != nil {
-		log.Fatal(err)
+		return Email{}, err
 	}
 
 	msg, err := mail.ReadMessage(bytes.NewReader(fileInfo))
 	if err != nil {
-		log.Fatal(err)
+		return Email{}, err
 	}
 
 	// Parse the message
 	header := msg.Header
 	body, err := io.ReadAll(msg.Body)
 	if err != nil {
-		log.Fatal(err)
+		return Email{}, err
 	}
 
 	// Create a struct to store the data
@@ -149,10 +135,11 @@ func parseEmail(email string) Email {
 		Body:    string(body),
 	}
 
-	return emailData
+	return emailData, nil
 }
 
 func createIndex() {
+
 	/*
 		createIndex is responsible for creating an index in a search engine.
 		It sends an HTTP POST request to the search engine's API with the necessary information to create the index.
@@ -196,11 +183,16 @@ func createIndex() {
 					"index": true,
 					"sortable": true,
 					"aggregatable": true
+				},
+				"Body": {
+					"type": "text",
+					"index": true,
+					"sortable": true,
+					"aggregatable": true
 				}
 			}
 		}
 	}`
-
 	url := "http://zincsearch:4080/api/index"
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
@@ -219,56 +211,85 @@ func createIndex() {
 	defer respuesta.Body.Close()
 }
 
-func insertData(dataToZinc chan Email) {
-	defer waG.Done()
-	// Send an HTTP POST request to insert data into an index in a search engine.
-	//
-	// Parameters:
-	//   - data (string): The data to be inserted into the index.
-	//
-	// Example Usage:
-	//   insertData(data)
-	//
-	// Flow:
-	//   1. Create an HTTP POST request with the specified URL and data.
-	//   2. Set the basic authentication credentials and headers for the request.
-	//   3. Send the request using the default HTTP client.
-	//   4. Close the response body after the request is completed.
+func formatData(dataToZinc chan Email) {
+	/*
+		formatData formats the data from an Email struct into a JSON string.
+
+		Parameters:
+		- data (Email): The data to be formatted.
+
+		Returns:
+		- string: The formatted data as a JSON string.
+		- error: An error if there is one, or nil if there is no error.
+	*/
+
 	// Get the index information
 	// Create a struct to store the data
-		data := <-dataToZinc
+
+	// Format the date
+	for data := range dataToZinc {
+
 		parsedDate, err := mail.ParseDate(data.Date)
 		if err != nil {
-			panic(err)
-		}
-		formattedDate, err := formatDate(parsedDate.String())
-		if err != nil {
-			panic(err)
-		}
-		dataJson := fmt.Sprintf(`{"date": "%s", "from": "%s", "to": "%s", "subject": "%s"}`, formattedDate, data.From, data.To, data.Subject)
-		fmt.Println(dataJson)
-		url := "http://zincsearch:4080/api/email/_doc"
-
-		request, err := http.NewRequest("POST", url, strings.NewReader(dataJson))
-		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
-		request.SetBasicAuth("admin", "Complexpass#123")
-		request.Header.Set("Content-Type", "application/json")
-
-		respuesta, err := http.DefaultClient.Do(request)
+		date, err := formatDate(parsedDate.String())
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
-		fmt.Println(data)
-		fmt.Println(respuesta)
-		
+
+		// Format the data
+		formattedData := fmt.Sprintf(`{
+		"date": "%s",
+		"from": "%s",
+		"to": "%s",
+		"subject": "%s",
+		"body": "%s"
+
+	}`, date, data.From, data.To, data.Subject, data.Body)
+
+		// Send the data to the 'insertData' function
+		insertData(formattedData)
+	}
+
 }
 
+/**
+ * insertData sends an HTTP POST request to the search engine's API to insert data into the index.
+ * @param {string} data - The data to be inserted into the index.
+ * @returns {void}
+ */
+func insertData(data string) {
+
+	url := "http://zincsearch:4080/api/email/_doc"
+
+	request, err := http.NewRequest("POST", url, strings.NewReader(data))
+	if err != nil {
+		panic(err)
+	}
+
+	request.SetBasicAuth("admin", "Complexpass#123")
+	request.Header.Set("Content-Type", "application/json")
+
+	respuesta, err := http.DefaultClient.Do(request)
+	if err != nil {
+		panic(err)
+	}
+
+	defer respuesta.Body.Close()
+
+}
+
+/**
+ * formatDate formats a date string into a RFC3339 format.
+ * @param {string} date - The date string to be formatted.
+ * @returns {time.Time} - The formatted date.
+ * @returns {error} - An error if there is one, or nil if there is no error.
+ */
 func formatDate(date string) (time.Time, error) {
 	const customDateFormat = "2006-01-02 15:04:05 -0700 -0700"
-	t, err := time.ParseInLocation(customDateFormat, date, time.UTC )
+	t, err := time.ParseInLocation(customDateFormat, date, time.UTC)
 	if err != nil {
 		return time.Time{}, err
 	}
