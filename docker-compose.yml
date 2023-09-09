@@ -16,7 +16,7 @@ services:
       - "8080:8080"
       - "6061:6060"
     volumes:
-      - ./app:/go/src/app
-    working_dir: /go/src/app
+      - ./app:/go/src/app/
+    working_dir: /go/src/app/main
     restart: on-failure
     command: gin -i run main.go
