@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,17 +10,13 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
-	"net/mail"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 )
 
-var emails = make(chan string, 500)
-var dataToZinc = make(chan email.Email, 500)
-
-var waG sync.WaitGroup
+var emails = make(chan string, 100)
+var dataToZinc = make(chan email.Email, 100)
 
 // create a struct to store the data
 
@@ -30,18 +27,31 @@ func main() {
 	}()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../asd", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../unarchivo", "path to the root directory")
 	flag.Parse()
 
 	apizinc.CreateIndex()
 
-	// Start the goroutines to process the emails and insert the data into the search engine
-	go findsDir(rootDirPath, emails)
-	go processEmails(emails, dataToZinc)
-	//
-	formatData(dataToZinc)
+	// Create a WaitGroup
+	var wg sync.WaitGroup
 
-	waG.Wait()
+	// Start the goroutines
+	wg.Add(1)
+	go formatData(&wg, dataToZinc)
+
+	numGoroutines := flag.Int("goroutines", 10, "number of goroutines")
+	flag.Parse()
+
+	for i := 0; i < *numGoroutines; i++ {
+		wg.Add(1)
+		go processEmails(&wg, emails, dataToZinc)
+	}
+
+	findsDir(rootDirPath, emails)
+
+	close(emails)
+
+	wg.Wait()
 }
 
 /**
@@ -79,18 +89,16 @@ func findsDir(dir string, emails chan string) {
  * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
  * @returns {void}
  */
-func processEmails(emails chan string, dataToZinc chan email.Email) {
-
+func processEmails(wg *sync.WaitGroup, emails chan string, dataToZinc chan email.Email) {
 	for oneEmail := range emails {
 		emailData, err := email.ParseEmail(oneEmail)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			continue
 		}
 		dataToZinc <- emailData
-
 	}
-
+	wg.Done()
 }
 
 /**
@@ -98,51 +106,40 @@ func processEmails(emails chan string, dataToZinc chan email.Email) {
  * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
  * @returns {void}
  */
-func formatData(dataToZinc chan email.Email) {
+func formatData(wg *sync.WaitGroup, dataToZinc chan email.Email) {
+	buffer := make([]email.Email, 0)
 
 	for data := range dataToZinc {
-
-		// Parse the date
-		parsedDate, err := mail.ParseDate(data.Date)
-		if err != nil {
-			log.Fatal(err)
+		buffer = append(buffer, data)
+		if len(buffer) == 100 {
+			sendBufferedData(buffer)
+			buffer = buffer[:0]
 		}
-
-		// Modify the date
-		date, err := formatDate(parsedDate.String())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Set the modified date
-		data.Date = date.String()
-
-		// JSON marshal the email object
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Send the data to the 'insertData' function
-		apizinc.InsertData(string(jsonData))
-
 	}
 
+	if len(buffer) > 0 {
+		sendBufferedData(buffer)
+	}
+
+	wg.Done()
 }
 
 /**
- * formatDate formats a date string into a RFC3339 format.
- * @param {string} date - The date string to be formatted.
- * @returns {time.Time} - The formatted date.
- * @returns {error} - An error if there is one, or nil if there is no error.
+ * sendBufferedData sends the data to the 'insertData' function.
+ * @param {[]Email} buffer - A slice containing the extracted information from the email messages.
+ * @returns {void}
  */
-func formatDate(date string) (time.Time, error) {
-	const customDateFormat = "2006-01-02 15:04:05 -0700 -0700"
-	t, err := time.ParseInLocation(customDateFormat, date, time.UTC)
-	if err != nil {
-		return time.Time{}, err
+func sendBufferedData(dataBuffer []email.Email) {
+	var buffer bytes.Buffer
+	for _, item := range dataBuffer {
+		jsonData, err := json.Marshal(item)
+		if err != nil {
+			log.Fatal(err)
+		}
+		buffer.Write(jsonData)
+		buffer.WriteString("\n") // Add a newline after each JSON object because the search engine expects it
 	}
-	formattedDate := t.Format(time.RFC3339)
-	fmt.Println(formattedDate)
-	return t, nil
+
+	// Send the data to the search engine for indexing and searching
+	apizinc.InsertData(buffer.String())
 }

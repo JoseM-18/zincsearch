@@ -75,7 +75,7 @@ func CreateIndex() {
  */
 func InsertData(data string) {
 
-	url := "http://zincsearch:4080/api/email/_doc"
+	url := "http://zincsearch:4080/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
