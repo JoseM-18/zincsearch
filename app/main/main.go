@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/JoseM-18/zincSearch/email"
 	"log"
