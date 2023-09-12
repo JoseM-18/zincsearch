@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"github.com/JoseM-18/zincSearch/apiZinc"
-	"github.com/JoseM-18/zincSearch/email"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/JoseM-18/zincSearch/apiZinc"
+	"github.com/JoseM-18/zincSearch/email"
 )
 
 var emails = make(chan string, 100)
-var dataToZinc = make(chan email.Email, 100)
+var dataToZinc = make(chan email.Email, 20)
 
 // create a struct to store the data
 
@@ -32,23 +33,26 @@ func main() {
 	apizinc.CreateIndex()
 
 	// Create a WaitGroup
-	var wg sync.WaitGroup
+	var wg, wgfd, wgpe sync.WaitGroup
 
 	// Start the goroutines
+
 	wg.Add(1)
 	go formatData(&wg, dataToZinc)
 
-	numGoroutines := flag.Int("goroutines", 10, "number of goroutines")
-	flag.Parse()
-
-	for i := 0; i < *numGoroutines; i++ {
-		wg.Add(1)
-		go processEmails(&wg, emails, dataToZinc)
+	for i := 0; i < 10; i++ {
+		wgpe.Add(1)
+		go processEmails(&wgpe, emails, dataToZinc)
 	}
 
-	findsDir(rootDirPath, emails)
+	wgfd.Add(1)
+	go findsDir(rootDirPath, emails, &wgfd)
 
+	wgfd.Wait()
 	close(emails)
+
+	wgpe.Wait()
+	close(dataToZinc)
 
 	wg.Wait()
 }
@@ -59,7 +63,8 @@ func main() {
  * @param {chan string} emails - A channel containing the paths to the email messages.
  * @returns {void}
  */
-func findsDir(dir string, emails chan string) {
+func findsDir(dir string, emails chan string, wgfd *sync.WaitGroup) {
+	defer wgfd.Done()
 
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -75,11 +80,13 @@ func findsDir(dir string, emails chan string) {
 		}
 
 		if fileInfo.IsDir() {
-			findsDir(filepath.Join(dir, file.Name()), emails)
+			wgfd.Add(1)
+			go findsDir(filepath.Join(dir, file.Name()), emails, wgfd)
 		} else {
 			emails <- filepath.Join(dir, file.Name())
 		}
 	}
+
 }
 
 /**
@@ -88,26 +95,28 @@ func findsDir(dir string, emails chan string) {
  * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
  * @returns {void}
  */
-func processEmails(wg *sync.WaitGroup, emails chan string, dataToZinc chan email.Email) {
+func processEmails(wgpe *sync.WaitGroup, emails chan string, dataToZinc chan email.Email) {
+	defer wgpe.Done()
 	for oneEmail := range emails {
 		emailData, err := email.ParseEmail(oneEmail)
 		if err != nil {
 			log.Println(err)
-			continue
+		} else {
+			dataToZinc <- emailData
 		}
-		dataToZinc <- emailData
 	}
-	wg.Done()
+
 }
 
 /**
- * formatData formats the data and sends it to the 'insertData' function.
+ * formatData formats the data and sends it to the search engine.
  * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
  * @returns {void}
  */
 func formatData(wg *sync.WaitGroup, dataToZinc chan email.Email) {
-	buffer := make([]email.Email, 0)
+	defer wg.Done()
 
+	buffer := make([]email.Email, 0)
 	for data := range dataToZinc {
 		buffer = append(buffer, data)
 		if len(buffer) == 100 {
@@ -118,9 +127,9 @@ func formatData(wg *sync.WaitGroup, dataToZinc chan email.Email) {
 
 	if len(buffer) > 0 {
 		sendBufferedData(buffer)
+
 	}
 
-	wg.Done()
 }
 
 /**
@@ -131,6 +140,7 @@ func formatData(wg *sync.WaitGroup, dataToZinc chan email.Email) {
 func sendBufferedData(dataBuffer []email.Email) {
 	var buffer bytes.Buffer
 	for _, item := range dataBuffer {
+
 		jsonData, err := json.Marshal(item)
 		if err != nil {
 			log.Fatal(err)

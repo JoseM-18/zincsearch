@@ -93,3 +93,7 @@ func InsertData(data string) {
 	defer respuesta.Body.Close()
 
 }
+
+func search (query string){
+	
+}
