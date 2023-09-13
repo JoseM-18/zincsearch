@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
 	"github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/JoseM-18/zincSearch/email"
 )
@@ -27,7 +26,7 @@ func main() {
 	}()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../unarchivo", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/enron_mail_20110402/maildir", "path to the root directory")
 	flag.Parse()
 
 	apizinc.CreateIndex()
@@ -119,7 +118,7 @@ func formatData(wg *sync.WaitGroup, dataToZinc chan email.Email) {
 	buffer := make([]email.Email, 0)
 	for data := range dataToZinc {
 		buffer = append(buffer, data)
-		if len(buffer) == 100 {
+		if len(buffer) == 1000 {
 			sendBufferedData(buffer)
 			buffer = buffer[:0]
 		}
