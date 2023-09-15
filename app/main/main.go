@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"github.com/JoseM-18/zincSearch/apiZinc"
-	"github.com/JoseM-18/zincSearch/email"
-	"github.com/JoseM-18/zincSearch/routes"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"sync"
+	"github.com/JoseM-18/zincSearch/apiZinc"
+	"github.com/JoseM-18/zincSearch/email"
 )
 
 var emails = make(chan string, 100)
@@ -26,18 +25,10 @@ func main() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
-	// Start the search engine
-	go func() {
-		router := routes.SetupRouter()
-		err := http.ListenAndServe(":9090", router)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../allen-p", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/enron_mail_20110402/maildir", "path to the root directory")
 	flag.Parse()
+
 	apizinc.CreateIndex()
 
 	// Create a WaitGroup
@@ -63,7 +54,6 @@ func main() {
 	close(dataToZinc)
 
 	wg.Wait()
-
 }
 
 /**

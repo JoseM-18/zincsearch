@@ -1,58 +1,19 @@
 package apizinc
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
 
 /**
- * createIndex sends an HTTP POST request to the search engine's API to create an index.
- * @returns {void}
+ * existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
+ * @returns {boolean} - Returns true if the index exists, false otherwise.
  */
-func CreateIndex() {
 
-	structureIndex := `{
-		"name": "email",
-		"storage_type": "disk",
-		"shard_num": 1,
-		"mappings": {
-			"properties": {
-				"Date": {
-					"type": "date",
-					"index": true,
-					"sortable": true,
-					"aggregatable": true
-				},
-				"From": {
-					"type": "text",
-					"index": true,
-					"sortable": true,
-					"aggregatable": true
-				},
-				"To": {
-					"type": "text",
-					"index": true,
-					"sortable": true,
-					"aggregatable": true
-				},
-				"Subject": {
-					"type": "text",
-					"index": true,
-					"sortable": true,
-					"aggregatable": true
-				},
-				"Body": {
-					"type": "text",
-					"index": true,
-					"sortable": true,
-					"aggregatable": true
-				}
-			}
-		}
-	}`
-	url := "http://zincsearch:4080/api/index"
+func existIndex() bool {
+	req, err := http.NewRequest("HEAD", "http://localhost:4080/api/index/email", nil)
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +26,74 @@ func CreateIndex() {
 	if err != nil {
 		panic(err)
 	}
+
+	exist := respuesta.StatusCode == 200
 	defer respuesta.Body.Close()
+
+	return exist
+}
+
+/**
+ * createIndex sends an HTTP POST request to the search engine's API to create an index.
+ * @returns {void}
+ */
+func CreateIndex() {
+
+	if !existIndex() {
+
+		structureIndex := `{
+		"name": "email",
+		"storage_type": "disk",
+		"shard_num": 1,
+		"mappings": {
+			"properties": {
+				"date": {
+					"type": "date",
+					"index": true,
+					"store": false,
+				},
+				"from": {
+					"type": "text",
+					"index": true,
+					"store": false,
+				},
+				"to": {
+					"type": "text",
+					"index": true,
+					"store": false,
+				},
+				"subject": {
+					"type": "text",
+					"index": true,
+					"highlightable": true,
+				},
+				"body": {
+					"type": "text",
+					"index": true,
+					"store": false,
+					"highlightable": true,
+				}
+			}
+		}
+	}`
+		url := "http://localhost:4080/api/index"
+
+		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
+		if err != nil {
+			panic(err)
+		}
+
+		req.SetBasicAuth("admin", "Complexpass#123")
+		req.Header.Set("Content-Type", "application/json")
+		req.Close = true
+
+		respuesta, err := http.DefaultClient.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer respuesta.Body.Close()
+
+	}
 }
 
 /**
@@ -75,7 +103,7 @@ func CreateIndex() {
  */
 func InsertData(data string) {
 
-	url := "http://zincsearch:4080/api/email/_multi"
+	url := "http://localhost:4080/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
@@ -90,10 +118,48 @@ func InsertData(data string) {
 		panic(err)
 	}
 
+	fmt.Println(respuesta)
+
 	defer respuesta.Body.Close()
 
 }
 
-func search (query string){
-	
+func Search(query string) (string,error) {
+	structureSearch := `{
+		"search_type": "match",
+		"query":
+		{
+				"term": "` + query + `"
+		},
+		"highlight": {
+				"fields": {
+						"body": {},
+						"subject": {}
+				}
+		}
+}`
+
+	url := "http://localhost:4080/api/email/_search"
+
+	request, err := http.NewRequest("GET", url, strings.NewReader(structureSearch))
+	if err != nil {
+		return "",err
+	}
+
+	request.SetBasicAuth("admin", "Complexpass#123")
+	request.Header.Set("Content-Type", "application/json")
+
+	respuesta, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return "",err
+	}
+
+	defer respuesta.Body.Close()
+
+	res := make([]byte, respuesta.ContentLength)
+	fmt.Println(respuesta.Body.Read(res))
+
+	return string(res),nil
+
+
 }

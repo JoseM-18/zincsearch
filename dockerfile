@@ -10,6 +10,9 @@ RUN go mod init
 # Instala las dependencias
 RUN go install github.com/codegangsta/gin@latest
 
+#instalar el paquete chi 
+RUN go get -u github.com/go-chi/chi
+
 # Copia el contenido del directorio actual en el directorio de trabajo
 COPY ./app .
 
