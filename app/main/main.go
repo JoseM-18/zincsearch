@@ -12,6 +12,8 @@ import (
 	"sync"
 	"github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/JoseM-18/zincSearch/email"
+	"github.com/JoseM-18/zincSearch/routes"
+
 )
 
 var emails = make(chan string, 100)
@@ -23,6 +25,10 @@ func main() {
 	//start profiling
 	go func() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
+	go func() {
+		log.Println(http.ListenAndServe(":9090", routes.SetupRouter()))
 	}()
 
 	var rootDirPath string
