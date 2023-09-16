@@ -15,6 +15,7 @@ services:
     ports:
       - "8080:8080"
       - "6061:6060"
+      - "9090:9090"
     volumes:
       - ./app:/go/src/app/
     working_dir: /go/src/app/main

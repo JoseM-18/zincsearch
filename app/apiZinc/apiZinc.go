@@ -1,7 +1,8 @@
 package apizinc
 
 import (
-	"fmt"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -10,9 +11,10 @@ import (
  * existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
  * @returns {boolean} - Returns true if the index exists, false otherwise.
  */
-const localhost = "zincsearch"
+const host = "zincsearch"
+
 func existIndex() bool {
-	req, err := http.NewRequest("HEAD", "http://" + localhost + ":4080/api/index/email", nil)
+	req, err := http.NewRequest("HEAD", "http://"+host+":4080/api/index/email", nil)
 
 	if err != nil {
 		panic(err)
@@ -76,7 +78,7 @@ func CreateIndex() {
 			}
 		}
 	}`
-		url := "http://" + localhost +":4080/api/index"
+		url := "http://" + host + ":4080/api/index"
 
 		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
 		if err != nil {
@@ -103,7 +105,7 @@ func CreateIndex() {
  */
 func InsertData(data string) {
 
-	url := "http://"+ localhost +":4080/api/email/_multi"
+	url := "http://" + host + ":4080/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
@@ -118,32 +120,34 @@ func InsertData(data string) {
 		panic(err)
 	}
 
-	fmt.Println(respuesta)
-
 	defer respuesta.Body.Close()
 
 }
 
-func Search(query string) (string,error) {
+func Search(query string) (map[string]interface{}, error) {
 	structureSearch := `{
-		"search_type": "match",
-		"query":
-		{
-				"term": "` + query + `"
+		"search_type":"match",
+		"query":{
+			 "term":"` + query + `"
 		},
-		"highlight": {
-				"fields": {
-						"body": {},
-						"subject": {}
-				}
+		"max_results":10000,
+		"highlight":{
+			 "fields":{
+					"body":{
+						 
+					},
+					"subject":{
+						 
+					}
+			 }
 		}
-}`
+ }`
 
-	url := "http://"+ localhost + ":4080/api/email/_search"
+	url := "http://" + host + ":4080/api/email/_search"
 
-	request, err := http.NewRequest("GET", url, strings.NewReader(structureSearch))
+	request, err := http.NewRequest("POST", url, strings.NewReader(structureSearch))
 	if err != nil {
-		return "",err
+		return nil, err
 	}
 
 	request.SetBasicAuth("admin", "Complexpass#123")
@@ -151,15 +155,23 @@ func Search(query string) (string,error) {
 
 	respuesta, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return "",err
+		return nil, err
 	}
-
 	defer respuesta.Body.Close()
 
-	res := make([]byte, respuesta.ContentLength)
-	fmt.Println(respuesta.Body.Read(res))
+	// Read the entire response body
+	body, err := io.ReadAll(respuesta.Body)
+	if err != nil {
+		return nil, err
+	}
 
-	return string(res),nil
+	// Unmarshal the response body into our struct type
+	var results map[string]interface{}
+	err = json.Unmarshal(body, &results)
+	if err != nil {
+		return nil, err
+	}
 
+	return results, nil
 
 }

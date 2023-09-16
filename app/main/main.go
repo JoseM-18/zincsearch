@@ -22,23 +22,24 @@ var dataToZinc = make(chan email.Email, 20)
 // create a struct to store the data
 
 func main() {
+	var wg, wgfd, wgpe,wgls sync.WaitGroup
 	//start profiling
 	go func() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
+	wgls.Add(1)
 	go func() {
 		log.Println(http.ListenAndServe(":9090", routes.SetupRouter()))
 	}()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/enron_mail_20110402/maildir", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../alleasdn-p", "path to the root directory")
 	flag.Parse()
 
 	apizinc.CreateIndex()
 
 	// Create a WaitGroup
-	var wg, wgfd, wgpe sync.WaitGroup
 
 	// Start the goroutines
 
@@ -60,6 +61,9 @@ func main() {
 	close(dataToZinc)
 
 	wg.Wait()
+
+	wgls.Wait()
+
 }
 
 /**
