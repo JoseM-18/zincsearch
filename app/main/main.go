@@ -10,10 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
 	"github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/JoseM-18/zincSearch/email"
-	"github.com/JoseM-18/zincSearch/routes"
 )
 
 var emails = make(chan string, 100)
@@ -27,12 +25,8 @@ func main() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
-	go func() {
-		log.Println(http.ListenAndServe(":9090", routes.SetupRouter()))
-	}()
-
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../allen-p", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/enron_mail_20110402/maildir", "path to the root directory")
 	flag.Parse()
 
 	apizinc.CreateIndex()

@@ -17,4 +17,4 @@ RUN go get -u github.com/go-chi/chi
 COPY ./app .
 
 # Expone el puerto 8080 y 6061
-EXPOSE 6061 8080 
+EXPOSE 6061 8080 9090

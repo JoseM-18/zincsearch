@@ -10,9 +10,9 @@ import (
  * existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
  * @returns {boolean} - Returns true if the index exists, false otherwise.
  */
-
+const localhost = "zincsearch"
 func existIndex() bool {
-	req, err := http.NewRequest("HEAD", "http://localhost:4080/api/index/email", nil)
+	req, err := http.NewRequest("HEAD", "http://" + localhost + ":4080/api/index/email", nil)
 
 	if err != nil {
 		panic(err)
@@ -76,7 +76,7 @@ func CreateIndex() {
 			}
 		}
 	}`
-		url := "http://localhost:4080/api/index"
+		url := "http://" + localhost +":4080/api/index"
 
 		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
 		if err != nil {
@@ -103,7 +103,7 @@ func CreateIndex() {
  */
 func InsertData(data string) {
 
-	url := "http://localhost:4080/api/email/_multi"
+	url := "http://"+ localhost +":4080/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
@@ -139,7 +139,7 @@ func Search(query string) (string,error) {
 		}
 }`
 
-	url := "http://localhost:4080/api/email/_search"
+	url := "http://"+ localhost + ":4080/api/email/_search"
 
 	request, err := http.NewRequest("GET", url, strings.NewReader(structureSearch))
 	if err != nil {

@@ -7,6 +7,11 @@ import (
 	"encoding/json"
 )
 
+/**
+ * SetupRouter creates a new router for the application.
+ * @returns {chi.Mux} - Returns a new router.
+ */
+ 
 func SetupRouter() *chi.Mux {
 	router := chi.NewRouter()
 	router.Get("/search", SearchHandler)
