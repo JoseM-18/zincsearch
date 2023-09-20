@@ -1,19 +1,16 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
-	"path/filepath"
 	"sync"
-	"github.com/JoseM-18/zincSearch/apiZinc"
+	apizinc "github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/JoseM-18/zincSearch/email"
+	"github.com/JoseM-18/zincSearch/emailProcessing/finders"
+	processor "github.com/JoseM-18/zincSearch/emailProcessing/processors"
 	"github.com/JoseM-18/zincSearch/routes"
-
 )
 
 var emails = make(chan string, 100)
@@ -22,142 +19,41 @@ var dataToZinc = make(chan email.Email, 20)
 // create a struct to store the data
 
 func main() {
-	var wg, wgfd, wgpe,wgls sync.WaitGroup
-	//start profiling
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
-	}()
+	// Create a WaitGroups for the goroutines to wait for each other
+	var wgFinders, wgProcessors, wgSender,wg sync.WaitGroup
 
-	wgls.Add(1)
+	wg.Add(1)
 	go func() {
-		log.Println(http.ListenAndServe(":9090", routes.SetupRouter()))
+		server := os.Getenv("SEARCHING_SERVER_ADDRESS")
+		log.Println(http.ListenAndServe(server, routes.SetupRouter()))
 	}()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../alleasdn-p", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/maildirsda", "path to the root directory")
 	flag.Parse()
 
 	apizinc.CreateIndex()
 
-	// Create a WaitGroup
+	wgFinders.Add(1)
+	go finders.FindsDir(rootDirPath, emails, &wgFinders)
 
 	// Start the goroutines
-
-	wg.Add(1)
-	go formatData(&wg, dataToZinc)
-
-	for i := 0; i < 10; i++ {
-		wgpe.Add(1)
-		go processEmails(&wgpe, emails, dataToZinc)
+	for i := 0; i < 12; i++ {
+		wgProcessors.Add(1)
+		go processor.ProcessEmails(&wgProcessors, emails, dataToZinc)
 	}
 
-	wgfd.Add(1)
-	go findsDir(rootDirPath, emails, &wgfd)
+	wgSender.Add(1)
+	go processor.SendPackages(&wgSender, dataToZinc)
 
-	wgfd.Wait()
+	wgFinders.Wait()
 	close(emails)
 
-	wgpe.Wait()
+	wgProcessors.Wait()
 	close(dataToZinc)
+
+	wgSender.Wait()
 
 	wg.Wait()
 
-	wgls.Wait()
-
-}
-
-/**
- * findsDir recursively searches for files in a given directory and its subdirectories, and sends the file paths to a channel for further processing.
- * @param {string} dir - The directory to be searched.
- * @param {chan string} emails - A channel containing the paths to the email messages.
- * @returns {void}
- */
-func findsDir(dir string, emails chan string, wgfd *sync.WaitGroup) {
-	defer wgfd.Done()
-
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	for _, file := range files {
-		fileInfo, err := file.Info()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		if fileInfo.IsDir() {
-			wgfd.Add(1)
-			go findsDir(filepath.Join(dir, file.Name()), emails, wgfd)
-		} else {
-			emails <- filepath.Join(dir, file.Name())
-		}
-	}
-
-}
-
-/**
- * processEmails processes the emails and extracts the relevant information from them.
- * @param {chan string} emails - A channel containing the paths to the email messages.
- * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
- * @returns {void}
- */
-func processEmails(wgpe *sync.WaitGroup, emails chan string, dataToZinc chan email.Email) {
-	defer wgpe.Done()
-	for oneEmail := range emails {
-		emailData, err := email.ParseEmail(oneEmail)
-		if err != nil {
-			log.Println(err)
-		} else {
-			dataToZinc <- emailData
-		}
-	}
-
-}
-
-/**
- * formatData formats the data and sends it to the search engine.
- * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
- * @returns {void}
- */
-func formatData(wg *sync.WaitGroup, dataToZinc chan email.Email) {
-	defer wg.Done()
-
-	buffer := make([]email.Email, 0)
-	for data := range dataToZinc {
-		buffer = append(buffer, data)
-		if len(buffer) == 1000 {
-			sendBufferedData(buffer)
-			buffer = buffer[:0]
-		}
-	}
-
-	if len(buffer) > 0 {
-		sendBufferedData(buffer)
-
-	}
-
-}
-
-/**
- * sendBufferedData sends the data to the 'insertData' function.
- * @param {[]Email} buffer - A slice containing the extracted information from the email messages.
- * @returns {void}
- */
-func sendBufferedData(dataBuffer []email.Email) {
-	var buffer bytes.Buffer
-	for _, item := range dataBuffer {
-
-		jsonData, err := json.Marshal(item)
-		if err != nil {
-			log.Fatal(err)
-		}
-		buffer.Write(jsonData)
-		buffer.WriteString("\n") // Add a newline after each JSON object because the search engine expects it
-	}
-
-	// Send the data to the search engine for indexing and searching
-	apizinc.InsertData(buffer.String())
 }
