@@ -2,44 +2,56 @@ package apizinc
 
 import (
 	"encoding/json"
-	"io"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 )
 
 const host = "zincsearch"
+const port = "4080"
 
 /**
  * existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
  * @returns {boolean} - Returns true if the index exists, false otherwise.
  */
-func existIndex() bool {
+func existIndex() (bool,error) {
 	
-	req, err := http.NewRequest("HEAD", "http://"+host+":4080/api/index/email", nil)
+	req, err := http.NewRequest("HEAD", "http://"+host+":"+port+"/api/index/email", nil)
 
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		contadorErroresApiZinc(err)
+		return false, err
 	}
 
 	respuesta, err := requestZinc(req)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		contadorErroresApiZinc(err)
+		return false, err
 	}
 
-	exist := respuesta.StatusCode == 200
 	defer respuesta.Body.Close()
 
-	return exist
+	return respuesta.StatusCode == 200, nil
 }
 
 /**
  * createIndex sends an HTTP POST request to the search engine's API to create an index.
  * @returns {void}
  */
-func CreateIndex() {
+func CreateIndex() (string, error) {
 
-	if !existIndex() {
+	value,err := existIndex()
+	if err != nil {
+		log.Println(err)
+		contadorErroresApiZinc(err)
+		return "", err
+	}
+
+	if !value { 
 
 		structureIndex := `{
 		"name": "email",
@@ -80,43 +92,53 @@ func CreateIndex() {
 
 		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			contadorErroresApiZinc(err)
+			return "", err
 		}
 
 		respuesta, err := requestZinc(req)
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			contadorErroresApiZinc(err)
+			return "", err
 		}
 		defer respuesta.Body.Close()
 
+		return "Index created", nil
+
+	} else {
+		return "Index already exists", nil
 	}
 }
-
 /**
  * insertData sends an HTTP POST request to the search engine's API to insert data into the index.
  * @param {string} data - The data to be inserted into the index.
  * @returns {void}
  */
-func InsertData(data string) {
+func InsertData(data string) error {
 
-	url := "http://" + host + ":4080/api/email/_multi"
+	const url = "http://" + host + ":4080/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
-		panic(err)
+		contadorErroresApiZinc(err)
+		return fmt.Errorf("error in request: %w", err)
 	}
 
 	respuesta, err := requestZinc(request)
 	if err != nil {
-		panic(err)
+		contadorErroresApiZinc(err)
+		return fmt.Errorf("error in response: %w", err)
 	}
 
 	defer respuesta.Body.Close()
 
+	return nil
 }
 
 /**
- * search sends an HTTP POST request to the search engine's API to search for a query.
+ * search sends an HTTP POST request to the search engine's API to search for a query. 
  * @param {string} query - The query to be searched.
  * @returns {map[string]interface} - The results of the search.
  * @returns {error} - The error.
@@ -127,7 +149,7 @@ func Search(query string) (map[string]interface{}, error) {
 		"query":{
 			 "term":"` + query + `"
 		},
-		"max_results":10000,
+		"max_results":1000,
 		"highlight":{
 			 "fields":{
 					"body":{
@@ -144,31 +166,30 @@ func Search(query string) (map[string]interface{}, error) {
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(structureSearch))
 	if err != nil {
+		contadorErroresApiZinc(err)
 		return nil, err
 	}
 
 	respuesta, err := requestZinc(request)
 	if err != nil {
+		contadorErroresApiZinc(err)
 		return nil, err
 	}
 	defer respuesta.Body.Close()
 
-	// Read the entire response body
-	body, err := io.ReadAll(respuesta.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal the response body into our struct type
+	// Decode the response into a map of strings and interfaces
 	var results map[string]interface{}
-	err = json.Unmarshal(body, &results)
+	err = json.NewDecoder(respuesta.Body).Decode(&results)
 	if err != nil {
+		contadorErroresApiZinc(err)
 		return nil, err
 	}
 
 	return results, nil
 
 }
+
+
 
 /**
  * requestZinc sends an HTTP request to the search engine's API.
@@ -179,9 +200,23 @@ func Search(query string) (map[string]interface{}, error) {
 func requestZinc (resquest *http.Request) (*http.Response, error) {
 	username := os.Getenv("ZINCSEARCH_USERNAME")
 	password := os.Getenv("ZINCSEARCH_PASSWORD")
+	if username == "" || password == "" {
+	    return nil, fmt.Errorf("ZINCSEARCH_USERNAME or ZINCSEARCH_PASSWORD environment variables are not set or empty")
+	}
 	resquest.SetBasicAuth(username, password)
 	resquest.Header.Set("Content-Type", "application/json")
 	resquest.Close = true
-
+	
 	return http.DefaultClient.Do(resquest)
 }
+
+var errors []error
+func contadorErroresApiZinc(err error){
+	errors = append(errors, err)
+}
+
+func GetErroresApiZinc() int{
+	total := len(errors)
+	return total
+}
+

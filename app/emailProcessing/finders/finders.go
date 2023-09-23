@@ -19,6 +19,7 @@ func FindsDir(dir string, emails chan string, wgFinders *sync.WaitGroup) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Println(err)
+		contadorErroresFinders(err)
 		return
 	}
 
@@ -26,6 +27,7 @@ func FindsDir(dir string, emails chan string, wgFinders *sync.WaitGroup) {
 		fileInfo, err := file.Info()
 		if err != nil {
 			log.Println(err)
+			contadorErroresFinders(err)
 			return
 		}
 
@@ -37,4 +39,14 @@ func FindsDir(dir string, emails chan string, wgFinders *sync.WaitGroup) {
 		}
 	}
 
+}
+
+var erros []error
+func contadorErroresFinders(err error){
+	erros = append(erros, err)
+}
+
+func GetErroresFinders() int{
+	total := len(erros)
+	return total
 }

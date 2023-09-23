@@ -1,7 +1,6 @@
 package email
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"net/mail"
@@ -25,14 +24,18 @@ type Email struct {
  */
 func ParseEmail(email string) (Email, error) {
 
-	// Read the file
-	fileInfo, err := os.ReadFile(email)
+	// Open the file
+	file, err := os.Open(email)
 	if err != nil {
+		contadorErroresEmail(err)
 		return Email{}, err
 	}
+	defer file.Close()
 
-	msg, err := mail.ReadMessage(bytes.NewReader(fileInfo))
+	// Read the message
+	msg, err := mail.ReadMessage(file)
 	if err != nil {
+		contadorErroresEmail(err)
 		return Email{}, err
 	}
 
@@ -40,6 +43,7 @@ func ParseEmail(email string) (Email, error) {
 	header := msg.Header
 	body, err := io.ReadAll(msg.Body)
 	if err != nil {
+		contadorErroresEmail(err)
 		return Email{}, err
 	}
 
@@ -55,6 +59,8 @@ func ParseEmail(email string) (Email, error) {
 	// Format the date
 	emailData, err = formatDate(emailData)
 	if err != nil {
+
+		contadorErroresEmail(err)
 		return Email{}, err
 	}
 
@@ -72,16 +78,31 @@ func formatDate(data Email) (Email, error) {
 	// Parse the date
 	parsedDate, err := mail.ParseDate(data.Date)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		contadorErroresEmail(err)
+		return Email{}, err
 	}
 	// Modify the date
 	date, err := time.Parse("2006-01-02 15:04:05 -0700 -0700", parsedDate.String())
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		contadorErroresEmail(err)
+		return Email{}, err
 	}
 
 	// Set the modified date
 	data.Date = date.String()
 
 	return data, nil
+}
+
+var errors []error
+
+func contadorErroresEmail(err error) {
+	errors = append(errors, err)
+}
+
+func GetErroresEmail() int {
+	total := len(errors)
+	return total
 }

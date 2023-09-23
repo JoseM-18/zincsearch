@@ -14,7 +14,7 @@ services:
     build: .
     ports:
       - "8080:8080"
-      - "7070:7070"
+      - "6060:6060"
       - "9090:9090"
     volumes:
       - ./app:/go/src/app/

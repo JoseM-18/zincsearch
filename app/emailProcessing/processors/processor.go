@@ -1,7 +1,7 @@
 package processor
 
 import (
-	"bytes"
+	"strings"
 	"encoding/json"
 	"log"
 	"sync"
@@ -21,6 +21,7 @@ func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc 
 		emailData, err := email.ParseEmail(oneEmail)
 		if err != nil {
 			log.Println(err)
+			contadorErroresProcessor(err)
 		} else {
 			dataToZinc <- emailData
 		}
@@ -35,39 +36,66 @@ func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc 
  */
 func SendPackages(wgSender *sync.WaitGroup, dataToZinc chan email.Email) {
 	defer wgSender.Done()
-	buffer := make([]email.Email, 0, 10000)
+	var buffer []email.Email
+	// Send the data in batches of 8000
+	const maxBufferSize = 8000
 
 	for data := range dataToZinc {
 		buffer = append(buffer, data)
-		if len(buffer) == 10000 {
-			sendBufferedData(buffer)
-			buffer = buffer[:0]
+		if len(buffer) == maxBufferSize {
+			err := sendBufferedData(buffer)
+			if err != nil {
+				log.Println(err)	
+			}
+			buffer = []email.Email{}
 		}
 	}
 
 	if len(buffer) > 0 {
-		sendBufferedData(buffer)
+		err :=sendBufferedData(buffer)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 }
 
 /**
- * sendBufferedData sends the data to the 'insertData' function.
+ * sendBufferedData sends the data to the search engine for indexing and searching.
  * @param {[]Email} buffer - A slice containing the extracted information from the email messages.
  * @returns {void}
  */
-func sendBufferedData(dataBuffer []email.Email) {
-	var buffer bytes.Buffer
+func sendBufferedData(dataBuffer []email.Email) error {
+	var builder strings.Builder
 	for _, item := range dataBuffer {
 
 		jsonData, err := json.Marshal(item)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			contadorErroresProcessor(err)
+			return err
 		}
-		buffer.Write(jsonData)
-		buffer.WriteString("\n") // Add a newline after each JSON object because the search engine expects it
+		builder.Write(jsonData)
+		builder.WriteString("\n") // Add a newline after each JSON object because the search engine expects it
 	}
 
 	// Send the data to the search engine for indexing and searching
-	apizinc.InsertData(buffer.String())
+	err := apizinc.InsertData(builder.String())
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	return nil
+
+}
+
+var errors []error
+func contadorErroresProcessor(err error){
+	errors = append(errors, err)
+}
+
+func GetErroresProcessor() int{
+	total := len(errors)
+	return total
 }
