@@ -21,6 +21,7 @@ func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc 
 		emailData, err := email.ParseEmail(oneEmail)
 		if err != nil {
 			log.Println(err)
+			contadorErroresProcessor(err)
 		} else {
 			dataToZinc <- emailData
 		}
@@ -56,18 +57,37 @@ func SendPackages(wgSender *sync.WaitGroup, dataToZinc chan email.Email) {
  * @param {[]Email} buffer - A slice containing the extracted information from the email messages.
  * @returns {void}
  */
-func sendBufferedData(dataBuffer []email.Email) {
+func sendBufferedData(dataBuffer []email.Email) error {
 	var buffer bytes.Buffer
 	for _, item := range dataBuffer {
 
 		jsonData, err := json.Marshal(item)
 		if err != nil {
 			log.Fatal(err)
+			contadorErroresProcessor(err)
+			return err
 		}
 		buffer.Write(jsonData)
 		buffer.WriteString("\n") // Add a newline after each JSON object because the search engine expects it
 	}
 
 	// Send the data to the search engine for indexing and searching
-	apizinc.InsertData(buffer.String())
+	err := apizinc.InsertData(buffer.String())
+	if err != nil {
+		log.Println(err)
+		contadorErroresProcessor(err)
+		return err
+	}
+
+	return nil
+}
+
+var errors []error
+func contadorErroresProcessor(err error){
+	errors = append(errors, err)
+}
+
+func GetErroresProcessor() int{
+	total := len(errors)
+	return total
 }

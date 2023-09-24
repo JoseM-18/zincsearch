@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"runtime/pprof"
 	"sync"
 	apizinc "github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/JoseM-18/zincSearch/email"
@@ -13,16 +15,17 @@ import (
 	"github.com/JoseM-18/zincSearch/routes"
 )
 
-var emails = make(chan string, 100)
-var dataToZinc = make(chan email.Email, 20)
+var emails = make(chan string, 1000)
+var dataToZinc = make(chan email.Email, 1000)
 
 // create a struct to store the data
 
 func main() {
 	// Create a WaitGroups for the goroutines to wait for each other
-	var wgFinders, wgProcessors, wgSender,wg sync.WaitGroup
+	var wgFinders, wgProcessors, wgSender sync.WaitGroup
+	f, _ := os.Create("cpu.pprof")
+	pprof.StartCPUProfile(f)
 
-	wg.Add(1)
 	go func() {
 		server := os.Getenv("SEARCHING_SERVER_ADDRESS")
 		log.Println(http.ListenAndServe(server, routes.SetupRouter()))
@@ -38,7 +41,7 @@ func main() {
 	go finders.FindsDir(rootDirPath, emails, &wgFinders)
 
 	// Start the goroutines
-	for i := 0; i < 12; i++ {
+	for i := 0; i < 4; i++ {
 		wgProcessors.Add(1)
 		go processor.ProcessEmails(&wgProcessors, emails, dataToZinc)
 	}
@@ -54,6 +57,12 @@ func main() {
 
 	wgSender.Wait()
 
-	wg.Wait()
+	defer pprof.StopCPUProfile()
+	fmt.Println("Errores Finders: ", finders.GetErroresFinders())
+	fmt.Println("Errores Processor: ", processor.GetErroresProcessor())
+	fmt.Println("Errores Email: ", email.GetErroresEmail())
+	fmt.Println("Errores ApiZinc: ", apizinc.GetErroresApiZinc())
+	fmt.Println("Total Errores: ", finders.GetErroresFinders()+processor.GetErroresProcessor()+email.GetErroresEmail()+apizinc.GetErroresApiZinc())
+
 
 }
