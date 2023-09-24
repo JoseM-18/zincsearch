@@ -12,7 +12,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	//"runtime/pprof"
+	"runtime/pprof"
 	"sync"
 )
 
@@ -23,18 +23,17 @@ var dataToZinc = make(chan email.Email, 1000)
 
 func main() {
 	// Create a WaitGroups for the goroutines to wait for each other
-	var wgFinders, wgProcessors, wgSender,wg sync.WaitGroup
-	//f, _ := os.Create("cpu.pprof")
-	//pprof.StartCPUProfile(f)
+	var wgFinders, wgProcessors, wgSender sync.WaitGroup
+	f, _ := os.Create("cpu.pprof")
+	pprof.StartCPUProfile(f)
 
-	wg.Add(1)
 	go func() {
 		server := os.Getenv("SEARCHING_SERVER_ADDRESS")
 		log.Println(http.ListenAndServe(server, routes.SetupRouter()))
 	}()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../allen-p", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/maildir", "path to the root directory")
 	flag.Parse()
 
 	res,err := apizinc.CreateIndex()
@@ -64,12 +63,11 @@ func main() {
 	close(dataToZinc)
 	wgSender.Wait()
 
-	//defer pprof.StopCPUProfile()
+	defer pprof.StopCPUProfile()
 	fmt.Println("Errores Finders: ", finders.GetErroresFinders())
 	fmt.Println("Errores Processor: ", processor.GetErroresProcessor())
 	fmt.Println("Errores Email: ", email.GetErroresEmail())
 	fmt.Println("Errores ApiZinc: ", apizinc.GetErroresApiZinc())
 	fmt.Println("Total Errores: ", finders.GetErroresFinders()+processor.GetErroresProcessor()+email.GetErroresEmail()+apizinc.GetErroresApiZinc())
 
-	wg.Wait()
 }
