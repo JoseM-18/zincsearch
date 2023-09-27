@@ -30,12 +30,13 @@ func FindsDir(dir string, emails chan string, wgFinders *sync.WaitGroup) {
 			contadorErroresFinders(err)
 			return
 		}
-
+		//get the file path
+		filePath := filepath.Join(dir, file.Name())
 		if fileInfo.IsDir() {
 			wgFinders.Add(1)
-			go FindsDir(filepath.Join(dir, file.Name()), emails, wgFinders)
+			go FindsDir(filePath, emails, wgFinders)
 		} else {
-			emails <- filepath.Join(dir, file.Name())
+			emails <- filePath
 		}
 	}
 

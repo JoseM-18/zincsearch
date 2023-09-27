@@ -152,12 +152,15 @@ func Search(query string) (map[string]interface{}, error) {
 		"max_results":1000,
 		"highlight":{
 			 "fields":{
-					"body":{
+				 "from":{
+						
+				 },
+				 "to":{
+						
+				 },
+				"body":{
 						 
-					},
-					"subject":{
-						 
-					}
+				}
 			 }
 		}
  }`
