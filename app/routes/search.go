@@ -6,6 +6,8 @@ import (
 	"github.com/JoseM-18/zincSearch/apiZinc"
 	"github.com/go-chi/chi/v5"
 	"net/http"
+	"github.com/go-chi/cors"
+
 )
 
 /**
@@ -15,6 +17,21 @@ import (
 
 func SetupRouter() *chi.Mux {
 	router := chi.NewRouter()
+
+	// Configura CORS
+	cors := cors.New(cors.Options{
+		// Ajusta los valores según tus necesidades
+		AllowedOrigins:   []string{"*"},                                       // Permitir todas las origins
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // Permite los métodos que desees
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Máximo de tiempo en caché de la respuesta de pre-verificación CORS en segundos
+	})
+
+	// Usa el middleware CORS en tu router
+	router.Use(cors.Handler)
+
 	router.Get("/search", SearchHandler)
 	return router
 }
