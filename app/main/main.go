@@ -34,7 +34,10 @@ func main() {
 }
 
 func startHTTPServer() {
-	server := os.Getenv("SEARCHING_SERVER_ADDRESS")
+	server := os.Getenv("PORT") 
+	if server == "" {
+		server = os.Getenv("SEARCHING_SERVER_ADDRESS")
+	}
 	log.Println(http.ListenAndServe(server, routes.SetupRouter()))
 }
 
