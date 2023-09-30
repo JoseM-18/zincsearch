@@ -13,13 +13,14 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"sync"
+	"runtime/pprof"
 )
 
 func main() {
-	// Create a WaitGroups for the goroutines to wait for each other
-	var wg sync.WaitGroup
 
-	wg.Add(1)
+	f, _ := os.Create("cpuProfile2.pprof")
+			pprof.StartCPUProfile(f)
+
 	go startHTTPServer()
 
 	var rootDirPath string
@@ -30,14 +31,14 @@ func main() {
 
 	printErrorStatistics()
 
-	wg.Wait()
+	pprof.StopCPUProfile()
+	f.Close()
+
+
 }
 
 func startHTTPServer() {
-	server := os.Getenv("PORT") 
-	if server == "" {
-		server = os.Getenv("SEARCHING_SERVER_ADDRESS")
-	}
+		server := os.Getenv("SEARCHING_SERVER_ADDRESS")
 	log.Println(http.ListenAndServe(server, routes.SetupRouter()))
 }
 
@@ -47,8 +48,8 @@ func initializeAndProcessEmails(rootDirPath string) {
 	var wgFinders, wgProcessors, wgSender sync.WaitGroup
 	
 	// Create channels to send the data between the goroutines
-	var emails = make(chan string, 1000)
-	var dataToZinc = make(chan email.Email, 1000)
+	var emails = make(chan string, 500)
+	var dataToZinc = make(chan email.Email, 500)
 	
 	// create index
 	res, err := apizinc.CreateIndex()

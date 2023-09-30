@@ -66,7 +66,7 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func printResultsJson(results map[string]interface{}) (string, error) {
-	// Create a new bytes.Buffer instance (it's like a buffer for bytes)
+	// Create a buffer to store the JSON output
 	var buffer bytes.Buffer
 
 	// Marshal the results to JSON

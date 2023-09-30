@@ -54,40 +54,45 @@ func CreateIndex() (string, error) {
 	if !value { 
 
 		structureIndex := `{
-		"name": "email",
-		"storage_type": "disk",
-		"shard_num": 1,
-		"mappings": {
-			"properties": {
-				"date": {
-					"type": "date",
-					"index": true,
-					"store": false,
-				},
-				"from": {
-					"type": "text",
-					"index": true,
-					"store": false,
-				},
-				"to": {
-					"type": "text",
-					"index": true,
-					"store": false,
-				},
-				"subject": {
-					"type": "text",
-					"index": true,
-					"highlightable": true,
-				},
-				"body": {
-					"type": "text",
-					"index": true,
-					"store": false,
-					"highlightable": true,
-				}
+			"name":"email",
+			"storage_type":"disk",
+			"shard_num":1,
+			"mappings":{
+				 "properties":{
+						"messageId":{
+							 "type":"text",
+							 "index":true,
+							 "store":false
+						},
+						"date":{
+							 "type":"text",
+							 "index":true,
+							 "store":false
+						},
+						"from":{
+							 "type":"text",
+							 "index":true,
+							 "store":false
+						},
+						"to":{
+							 "type":"text",
+							 "index":true,
+							 "store":false
+						},
+						"subject":{
+							 "type":"text",
+							 "index":true,
+							 "highlightable":true
+						},
+						"body":{
+							 "type":"text",
+							 "index":true,
+							 "store":false,
+							 "highlightable":true
+						}
+				 }
 			}
-		}
-	}`
+	 }`
 		url := "http://" + host + ":4080/api/index"
 
 		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
@@ -105,7 +110,12 @@ func CreateIndex() (string, error) {
 		}
 		defer respuesta.Body.Close()
 
+
+		if respuesta.StatusCode == 200 {
 		return "Index created", nil
+		}else{
+			return "Error creating index", nil
+		}
 
 	} else {
 		return "Index already exists", nil
@@ -117,19 +127,17 @@ func CreateIndex() (string, error) {
  * @returns {void}
  */
 func InsertData(data string) error {
-
 	const url = "http://" + host + ":4080/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
 		contadorErroresApiZinc(err)
-		return fmt.Errorf("error in request: %w", err)
+		return err
 	}
 
 	respuesta, err := requestZinc(request)
 	if err != nil {
-		contadorErroresApiZinc(err)
-		return fmt.Errorf("error in response: %w", err)
+		return err
 	}
 
 	defer respuesta.Body.Close()
@@ -149,7 +157,7 @@ func Search(query string) (map[string]interface{}, error) {
 		"query":{
 			 "term":"` + query + `"
 		},
-		"max_results":1000,
+		"max_results":500,
 		"highlight":{
 			 "fields":{
 				 "from":{
@@ -191,8 +199,6 @@ func Search(query string) (map[string]interface{}, error) {
 	return results, nil
 
 }
-
-
 
 /**
  * requestZinc sends an HTTP request to the search engine's API.

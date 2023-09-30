@@ -2,18 +2,17 @@ package email
 
 import (
 	"io"
-	"log"
 	"net/mail"
 	"os"
-	"time"
 )
 
 type Email struct {
-	Date    string `json:"date"`
-	From    string `json:"from"`
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
+	MessageId string `json:"messageId"`
+	Date      string `json:"date"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Subject   string `json:"subject"`
+	Body      string `json:"body"`
 }
 
 /**
@@ -49,51 +48,17 @@ func ParseEmail(email string) (Email, error) {
 
 	// Create a struct to store the data
 	emailData := Email{
-		Date:    header.Get("Date"),
-		From:    header.Get("From"),
-		To:      header.Get("To"),
-		Subject: header.Get("Subject"),
-		Body:    string(body),
+		MessageId: header.Get("Message-ID"),
+		Date:      header.Get("Date"),
+		From:      header.Get("From"),
+		To:        header.Get("To"),
+		Subject:   header.Get("Subject"),
+		Body:      string(body),
 	}
 
-	// Format the date
-	emailData, err = formatDate(emailData)
-	if err != nil {
-
-		contadorErroresEmail(err)
-		return Email{}, err
-	}
-
+	// Return the data
 	return emailData, nil
 
-}
-
-/**
- * formatDate formats a date string into a RFC3339 format.
- * @param {string} date - The date string to be formatted.
- * @returns {time.Time} - The formatted date.
- * @returns {error} - An error if there is one, or nil if there is no error.
- */
-func formatDate(data Email) (Email, error) {
-	// Parse the date
-	parsedDate, err := mail.ParseDate(data.Date)
-	if err != nil {
-		log.Println(err)
-		contadorErroresEmail(err)
-		return Email{}, err
-	}
-	// Modify the date
-	date, err := time.Parse("2006-01-02 15:04:05 -0700 -0700", parsedDate.String())
-	if err != nil {
-		log.Println(err)
-		contadorErroresEmail(err)
-		return Email{}, err
-	}
-
-	// Set the modified date
-	data.Date = date.String()
-
-	return data, nil
 }
 
 var errors []error
