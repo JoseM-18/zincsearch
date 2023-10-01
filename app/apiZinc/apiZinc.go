@@ -188,15 +188,7 @@ func Search(query string) (map[string]interface{}, error) {
 	}
 	defer respuesta.Body.Close()
 
-	// Decode the response into a map of strings and interfaces
-	var results map[string]interface{}
-	err = json.NewDecoder(respuesta.Body).Decode(&results)
-	if err != nil {
-		contadorErroresApiZinc(err)
-		return nil, err
-	}
-
-	return results, nil
+	return respuesta, nil
 
 }
 
