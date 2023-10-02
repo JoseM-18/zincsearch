@@ -58,7 +58,7 @@ func initializeAndProcessEmails(rootDirPath string) {
 	var wgFinders, wgProcessors, wgSender sync.WaitGroup
 	
 	// Create channels to send the data between the goroutines
-	var emails = make(chan string, 1000)
+	var dirsEmails = make(chan string, 1000)
 	var dataToZinc = make(chan email.Email, 1000)
 	
 	// create index
@@ -70,7 +70,7 @@ func initializeAndProcessEmails(rootDirPath string) {
 	
 	// start finders to find emails files and send them to the emails channel
 	wgFinders.Add(1)
-	go finders.FindsDir(rootDirPath, emails, &wgFinders)
+	go finders.FindsDir(rootDirPath, dirsEmails, &wgFinders)
 
 	//map to store uniques dates
 	dateMap := &sync.Map{}
@@ -80,7 +80,7 @@ func initializeAndProcessEmails(rootDirPath string) {
 	const numProcessors = 4
 	for i := 0; i < numProcessors; i++ {
 		wgProcessors.Add(1)
-		go processor.ProcessEmails(&wgProcessors, emails, dataToZinc, dateMap)
+		go processor.ProcessEmails(&wgProcessors, dirsEmails, dataToZinc, dateMap)
 	}
 
 	// start sender to send the data to the search engine
@@ -89,7 +89,7 @@ func initializeAndProcessEmails(rootDirPath string) {
 
 	// Wait for the goroutines to finish
 	wgFinders.Wait()
-	close(emails)
+	close(dirsEmails)
 	wgProcessors.Wait()
 	close(dataToZinc)
 	wgSender.Wait()

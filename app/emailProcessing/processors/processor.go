@@ -15,11 +15,11 @@ import (
  * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
  * @returns {void}
  */
-func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc chan email.Email, dateMap *sync.Map) {
+func ProcessEmails(wgProcessors *sync.WaitGroup, dirsEmails chan string, dataToZinc chan email.Email, dateMap *sync.Map) {
 	defer wgProcessors.Done()
 
 	// Iterate over the emails
-	for oneEmail := range emails {
+	for oneEmail := range dirsEmails {
 		// Parse the email
 		emailData, err := email.ParseEmail(oneEmail)
 		if err != nil {

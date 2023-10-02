@@ -13,7 +13,7 @@ import (
  * @param {chan string} emails - A channel containing the paths to the email messages.
  * @returns {void}
  */
-func FindsDir(dir string, emails chan string, wgFinders *sync.WaitGroup) {
+func FindsDir(dir string, dirsEmails chan string, wgFinders *sync.WaitGroup) {
 	defer wgFinders.Done()
 
 	//get the files in the directory
@@ -36,10 +36,10 @@ func FindsDir(dir string, emails chan string, wgFinders *sync.WaitGroup) {
 		filePath := filepath.Join(dir, file.Name())
 		if fileInfo.IsDir() {
 			wgFinders.Add(1)
-			go FindsDir(filePath, emails, wgFinders)
+			go FindsDir(filePath, dirsEmails, wgFinders)
 		} else {
 			//send the file path to the channel
-			emails <- filePath
+			dirsEmails <- filePath
 		}
 	}
 

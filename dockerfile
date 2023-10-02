@@ -1,20 +1,20 @@
-#utiliza la imagen de golang
+#use the latest golang image
 FROM golang:latest
 
-#define el directorio de trabajo
+#define the working directory
 WORKDIR /go/src/app
 
-#inicializamos el modulo
+#init the go mod
 RUN go mod init
 
-# Instala las dependencias
+# Install gin for live reload
 RUN go install github.com/codegangsta/gin@latest
 
-#instalar el paquete chi 
+#Install chi for routing
 RUN go get -u github.com/go-chi/chi
 
-# Copia el contenido del directorio actual en el directorio de trabajo
+# Copy the current directory contents into the container at /app
 COPY ./app .
 
-# Expone el puerto 8080 y 6061
-EXPOSE 6060 8080 9090
+# Expose port 9090 to the outside world
+EXPOSE 9090

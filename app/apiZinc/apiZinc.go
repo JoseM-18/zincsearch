@@ -167,7 +167,7 @@ func InsertData(data string) error {
  * @returns {error} - The error.
  */
 func Search(query string) (map[string]interface{}, error) {
-	host, port, err := getHostAndPort()
+	host, port, err := getHostAndPortSearch()
 	if err != nil {
 		contadorErroresApiZinc(err)
 		return nil, err
@@ -241,9 +241,24 @@ func requestZinc(resquest *http.Request) (*http.Response, error) {
 }
  
 /**
- * getHostAndPort gets the host and port of the search engine's API.
+ * getHostAndPort gets the host and port of the zincsearch server.
  */
 func getHostAndPort() (string, string, error) {
+	host := os.Getenv("HOST_ZINCSEARCH")
+	if host == "" {
+		return "", "", fmt.Errorf("SEARCHING_SERVER_ADDRESS environment variable is not set or empty")
+	}
+	port := os.Getenv("PORT_ZINCSEARCH")
+	if port == "" {
+		return "", "", fmt.Errorf("SEARCHING_SERVER_PORT environment variable is not set or empty")
+	}
+	return host, port, nil
+}
+
+/**
+ * getHostAndPortSearch gets the host and port of the search server.
+ */
+func getHostAndPortSearch() (string, string, error) {
 	host := os.Getenv("SEARCHING_SERVER_ADDRESS")
 	if host == "" {
 		return "", "", fmt.Errorf("SEARCHING_SERVER_ADDRESS environment variable is not set or empty")
