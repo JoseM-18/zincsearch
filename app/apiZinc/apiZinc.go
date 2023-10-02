@@ -102,7 +102,7 @@ func CreateIndex() (string, error) {
 				 }
 			}
 	 }`
-		url := "http://" + host + ":" + port + "/api/index/email"
+		url := "http://" + host + ":" + port + "/api/index"
 
 		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
 		if err != nil {
@@ -142,7 +142,7 @@ func InsertData(data string) error {
 		return err
 	}
 
-	url := "http://" + host + ":" + port + "/api/index/email/_multi"
+	url := "http://" + host + ":" + port + "/api/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
