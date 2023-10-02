@@ -167,7 +167,7 @@ func InsertData(data string) error {
  * @returns {error} - The error.
  */
 func Search(query string) (map[string]interface{}, error) {
-	host, port, err := getHostAndPortSearch()
+	host, port, err := getHostAndPort()
 	if err != nil {
 		contadorErroresApiZinc(err)
 		return nil, err
@@ -194,7 +194,7 @@ func Search(query string) (map[string]interface{}, error) {
 		}
  }`
 
-	url := "http://" + host + ":" + port + "/api/index/email/_search"
+	url := "http://" + host + ":" + port + "/api/email/_search"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(structureSearch))
 	if err != nil {
@@ -249,21 +249,6 @@ func getHostAndPort() (string, string, error) {
 		return "", "", fmt.Errorf("SEARCHING_SERVER_ADDRESS environment variable is not set or empty")
 	}
 	port := os.Getenv("PORT_ZINCSEARCH")
-	if port == "" {
-		return "", "", fmt.Errorf("SEARCHING_SERVER_PORT environment variable is not set or empty")
-	}
-	return host, port, nil
-}
-
-/**
- * getHostAndPortSearch gets the host and port of the search server.
- */
-func getHostAndPortSearch() (string, string, error) {
-	host := os.Getenv("SEARCHING_SERVER_ADDRESS")
-	if host == "" {
-		return "", "", fmt.Errorf("SEARCHING_SERVER_ADDRESS environment variable is not set or empty")
-	}
-	port := os.Getenv("SEARCHING_SERVER_PORT")
 	if port == "" {
 		return "", "", fmt.Errorf("SEARCHING_SERVER_PORT environment variable is not set or empty")
 	}
