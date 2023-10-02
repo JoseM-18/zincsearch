@@ -13,36 +13,45 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"sync"
-	"runtime/pprof"
+	//"runtime/pprof"
 )
 
 func main() {
 
-	//var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
-	//wg.Add(1)
+	wg.Add(1)
 	go startHTTPServer()
 
 	var rootDirPath string
-	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/maildir", "path to the root directory")
+	flag.StringVar(&rootDirPath, "rootDir", "../enron_mail_20110402/maildirsd", "path to the root directory")
 	flag.Parse()
 
 	initializeAndProcessEmails(rootDirPath)
 
 	printErrorStatistics()
 
-	//wg.Wait()
+	wg.Wait()
 
 }
 
+/**
+ * startHTTPServer starts the HTTP server to listen for requests of searching emails.
+ * @returns {void}
+ */
 func startHTTPServer() {
 		server := os.Getenv("SEARCHING_SERVER_ADDRESS")
 	log.Println(http.ListenAndServe(server, routes.SetupRouter()))
 }
 
+/**
+ * initializeAndProcessEmails initializes the search engine and processes the emails.
+ * @param {string} rootDirPath - The path to the root directory.
+ * @returns {void}
+ */
 func initializeAndProcessEmails(rootDirPath string) {
-	f, _ := os.Create("cpuProfile2.pprof")
-			pprof.StartCPUProfile(f)
+	//f, _ := os.Create("cpuProfile2.pprof")
+			//pprof.StartCPUProfile(f)
 
 	
 	// create a WaitGroups for the goroutines to wait for each other
@@ -85,10 +94,15 @@ func initializeAndProcessEmails(rootDirPath string) {
 	close(dataToZinc)
 	wgSender.Wait()
 
-	pprof.StopCPUProfile()
-	f.Close()
+	//pprof.StopCPUProfile()
+	//f.Close()
 }
 
+/**
+ * printErrorStatistics prints the number of errors that occurred when searching for email messages,
+ * parsing them, and sending them to the search engine.
+ * @returns {void}
+ */
 func printErrorStatistics() {
 	fmt.Println("Errores Finders: ", finders.GetErroresFinders())
 	fmt.Println("Errores Processor: ", processor.GetErroresProcessor())

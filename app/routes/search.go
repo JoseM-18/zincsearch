@@ -14,7 +14,6 @@ import (
  * SetupRouter creates a new router for the application.
  * @returns {chi.Mux} - Returns a new router.
  */
-
 func SetupRouter() *chi.Mux {
 	router := chi.NewRouter()
 
@@ -30,7 +29,6 @@ func SetupRouter() *chi.Mux {
 
 	// Use default configuration
 	router.Use(cors.Handler)
-
 	router.Get("/search", SearchHandler)
 	return router
 }
@@ -42,17 +40,21 @@ func SetupRouter() *chi.Mux {
  * @returns {void}
  */
 func SearchHandler(w http.ResponseWriter, r *http.Request) {
+	// Get the query from the URL
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	// Search the query in the search engine
 	results, err := apizinc.Search(query)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	// Print the results in JSON format
 	resultsJson, err := printResultsJson(results)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -64,6 +66,12 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+/**
+ * printResultsJson prints the results in JSON format.
+ * @param {map[string]interface{}} results - The results to be printed.
+ * @returns {string} - The results in JSON format.
+ * @returns {error} - The error.
+ */
 func printResultsJson(results map[string]interface{}) (string, error) {
 	// Create a buffer to store the JSON output
 	var buffer bytes.Buffer

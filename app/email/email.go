@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// Email is a struct that stores the relevant information from an email message.
 type Email struct {
 	MessageId string `json:"messageId"`
 	Date      string `json:"date"`
@@ -61,12 +62,20 @@ func ParseEmail(email string) (Email, error) {
 
 }
 
+/**
+ * contadorErroresEmail stores the errors that occur when parsing an email message.
+ * @param {error} err - The error that occurred.
+ * @returns {void}
+ */
 var errors []error
-
 func contadorErroresEmail(err error) {
 	errors = append(errors, err)
 }
 
+/**
+ * GetErroresEmail returns the number of errors that occurred when parsing email messages.
+ * @returns {int} - The number of errors.
+ */
 func GetErroresEmail() int {
 	total := len(errors)
 	return total

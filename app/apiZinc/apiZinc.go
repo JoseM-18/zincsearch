@@ -9,14 +9,17 @@ import (
 	"strings"
 )
 
-const host = "zincsearch"
-const port = "4080"
-
 /**
- * existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
- * @returns {boolean} - Returns true if the index exists, false otherwise.
+* existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
+* @returns {boolean} - Returns true if the index exists, false otherwise.
  */
 func existIndex() (bool, error) {
+	host, port, err := getHostAndPort()
+	if err != nil {
+		log.Println(err)
+		contadorErroresApiZinc(err)
+		return false, err
+	}
 
 	req, err := http.NewRequest("HEAD", "http://"+host+":"+port+"/api/index/email", nil)
 
@@ -43,6 +46,12 @@ func existIndex() (bool, error) {
  * @returns {void}
  */
 func CreateIndex() (string, error) {
+	host, port, err := getHostAndPort()
+	if err != nil {
+		log.Println(err)
+		contadorErroresApiZinc(err)
+		return "", err
+	}
 
 	value, err := existIndex()
 	if err != nil {
@@ -93,7 +102,7 @@ func CreateIndex() (string, error) {
 				 }
 			}
 	 }`
-		url := "http://" + host + ":4080/api/index"
+		url := "http://" + host + ":" + port + "/api/index/email"
 
 		req, err := http.NewRequest("POST", url, strings.NewReader(structureIndex))
 		if err != nil {
@@ -127,7 +136,13 @@ func CreateIndex() (string, error) {
  * @returns {void}
  */
 func InsertData(data string) error {
-	const url = "http://" + host + ":4080/api/email/_multi"
+	host, port, err := getHostAndPort()
+	if err != nil {
+		contadorErroresApiZinc(err)
+		return err
+	}
+
+	url := "http://" + host + ":" + port + "/api/index/email/_multi"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(data))
 	if err != nil {
@@ -152,6 +167,12 @@ func InsertData(data string) error {
  * @returns {error} - The error.
  */
 func Search(query string) (map[string]interface{}, error) {
+	host, port, err := getHostAndPort()
+	if err != nil {
+		contadorErroresApiZinc(err)
+		return nil, err
+	}
+
 	structureSearch := `{
 		"search_type":"match",
 		"query":{
@@ -173,7 +194,7 @@ func Search(query string) (map[string]interface{}, error) {
 		}
  }`
 
-	url := "http://" + host + ":4080/api/email/_search"
+	url := "http://" + host + ":" + port + "/api/index/email/_search"
 
 	request, err := http.NewRequest("POST", url, strings.NewReader(structureSearch))
 	if err != nil {
@@ -195,9 +216,6 @@ func Search(query string) (map[string]interface{}, error) {
 		contadorErroresApiZinc(err)
 		return nil, err
 	}
-
-	
-	
 
 	return results, nil
 
@@ -221,13 +239,33 @@ func requestZinc(resquest *http.Request) (*http.Response, error) {
 
 	return http.DefaultClient.Do(resquest)
 }
+ 
+/**
+ * getHostAndPort gets the host and port of the search engine's API.
+ */
+func getHostAndPort() (string, string, error) {
+	host := os.Getenv("SEARCHING_SERVER_ADDRESS")
+	if host == "" {
+		return "", "", fmt.Errorf("SEARCHING_SERVER_ADDRESS environment variable is not set or empty")
+	}
+	port := os.Getenv("SEARCHING_SERVER_PORT")
+	if port == "" {
+		return "", "", fmt.Errorf("SEARCHING_SERVER_PORT environment variable is not set or empty")
+	}
+	return host, port, nil
+}
 
-
+/**
+ * contadorErroresApiZinc is a function to count the errors in the API Zinc
+ */
 var errorsHere []error
 func contadorErroresApiZinc(err error) {
 	errorsHere = append(errorsHere, err)
 }
 
+/**
+ * GetErroresApiZinc is a function to get the errors in the API Zinc
+ */
 func GetErroresApiZinc() int {
 	total := len(errorsHere)
 	return total
