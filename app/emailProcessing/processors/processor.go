@@ -15,7 +15,7 @@ import (
  * @param {chan Email} dataToZinc - A channel containing the extracted information from the email messages.
  * @returns {void}
  */
-func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc chan email.Email) {
+func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc chan email.Email,dateMap *sync.Map) {
 	defer wgProcessors.Done()
 	for oneEmail := range emails {
 		emailData, err := email.ParseEmail(oneEmail)
@@ -23,7 +23,14 @@ func ProcessEmails(wgProcessors *sync.WaitGroup, emails chan string, dataToZinc 
 			log.Println(err)
 			contadorErroresProcessor(err)
 		} else {
-			dataToZinc <- emailData
+
+			date := emailData.Date
+
+			// verify if the date is already in the map
+			_, loaded := dateMap.LoadOrStore(date, true)
+			if !loaded {
+				dataToZinc <- emailData
+			}
 		}
 	}
 

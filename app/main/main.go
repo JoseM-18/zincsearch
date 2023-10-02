@@ -18,9 +18,9 @@ import (
 
 func main() {
 
-	f, _ := os.Create("cpuProfile2.pprof")
-			pprof.StartCPUProfile(f)
+	//var wg sync.WaitGroup
 
+	//wg.Add(1)
 	go startHTTPServer()
 
 	var rootDirPath string
@@ -31,9 +31,7 @@ func main() {
 
 	printErrorStatistics()
 
-	pprof.StopCPUProfile()
-	f.Close()
-
+	//wg.Wait()
 
 }
 
@@ -43,13 +41,16 @@ func startHTTPServer() {
 }
 
 func initializeAndProcessEmails(rootDirPath string) {
+	f, _ := os.Create("cpuProfile2.pprof")
+			pprof.StartCPUProfile(f)
+
 	
 	// create a WaitGroups for the goroutines to wait for each other
 	var wgFinders, wgProcessors, wgSender sync.WaitGroup
 	
 	// Create channels to send the data between the goroutines
-	var emails = make(chan string, 500)
-	var dataToZinc = make(chan email.Email, 500)
+	var emails = make(chan string, 1000)
+	var dataToZinc = make(chan email.Email, 1000)
 	
 	// create index
 	res, err := apizinc.CreateIndex()
@@ -61,12 +62,16 @@ func initializeAndProcessEmails(rootDirPath string) {
 	// start finders to find emails files and send them to the emails channel
 	wgFinders.Add(1)
 	go finders.FindsDir(rootDirPath, emails, &wgFinders)
+
+	//map to store uniques dates
+	dateMap := &sync.Map{}
+
 	
 	// start processors to process emails and send them to the dataToZinc channel
 	const numProcessors = 4
 	for i := 0; i < numProcessors; i++ {
 		wgProcessors.Add(1)
-		go processor.ProcessEmails(&wgProcessors, emails, dataToZinc)
+		go processor.ProcessEmails(&wgProcessors, emails, dataToZinc, dateMap)
 	}
 
 	// start sender to send the data to the search engine
@@ -79,6 +84,9 @@ func initializeAndProcessEmails(rootDirPath string) {
 	wgProcessors.Wait()
 	close(dataToZinc)
 	wgSender.Wait()
+
+	pprof.StopCPUProfile()
+	f.Close()
 }
 
 func printErrorStatistics() {

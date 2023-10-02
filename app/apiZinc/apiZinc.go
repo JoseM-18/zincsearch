@@ -16,8 +16,8 @@ const port = "4080"
  * existIndex sends an HTTP HEAD request to the search engine's API to check if an index exists.
  * @returns {boolean} - Returns true if the index exists, false otherwise.
  */
-func existIndex() (bool,error) {
-	
+func existIndex() (bool, error) {
+
 	req, err := http.NewRequest("HEAD", "http://"+host+":"+port+"/api/index/email", nil)
 
 	if err != nil {
@@ -44,14 +44,14 @@ func existIndex() (bool,error) {
  */
 func CreateIndex() (string, error) {
 
-	value,err := existIndex()
+	value, err := existIndex()
 	if err != nil {
 		log.Println(err)
 		contadorErroresApiZinc(err)
 		return "", err
 	}
 
-	if !value { 
+	if !value {
 
 		structureIndex := `{
 			"name":"email",
@@ -110,10 +110,9 @@ func CreateIndex() (string, error) {
 		}
 		defer respuesta.Body.Close()
 
-
 		if respuesta.StatusCode == 200 {
-		return "Index created", nil
-		}else{
+			return "Index created", nil
+		} else {
 			return "Error creating index", nil
 		}
 
@@ -121,6 +120,7 @@ func CreateIndex() (string, error) {
 		return "Index already exists", nil
 	}
 }
+
 /**
  * insertData sends an HTTP POST request to the search engine's API to insert data into the index.
  * @param {string} data - The data to be inserted into the index.
@@ -146,7 +146,7 @@ func InsertData(data string) error {
 }
 
 /**
- * search sends an HTTP POST request to the search engine's API to search for a query. 
+ * search sends an HTTP POST request to the search engine's API to search for a query.
  * @param {string} query - The query to be searched.
  * @returns {map[string]interface} - The results of the search.
  * @returns {error} - The error.
@@ -188,7 +188,18 @@ func Search(query string) (map[string]interface{}, error) {
 	}
 	defer respuesta.Body.Close()
 
-	return respuesta, nil
+	// Decode the response into a map of strings and interfaces
+	var results map[string]interface{}
+	err = json.NewDecoder(respuesta.Body).Decode(&results)
+	if err != nil {
+		contadorErroresApiZinc(err)
+		return nil, err
+	}
+
+	
+	
+
+	return results, nil
 
 }
 
@@ -198,26 +209,26 @@ func Search(query string) (map[string]interface{}, error) {
  * @returns {http.Response} - The HTTP response.
  * @returns {error} - The error.
  */
-func requestZinc (resquest *http.Request) (*http.Response, error) {
+func requestZinc(resquest *http.Request) (*http.Response, error) {
 	username := os.Getenv("ZINCSEARCH_USERNAME")
 	password := os.Getenv("ZINCSEARCH_PASSWORD")
 	if username == "" || password == "" {
-	    return nil, fmt.Errorf("ZINCSEARCH_USERNAME or ZINCSEARCH_PASSWORD environment variables are not set or empty")
+		return nil, fmt.Errorf("ZINCSEARCH_USERNAME or ZINCSEARCH_PASSWORD environment variables are not set or empty")
 	}
 	resquest.SetBasicAuth(username, password)
 	resquest.Header.Set("Content-Type", "application/json")
 	resquest.Close = true
-	
+
 	return http.DefaultClient.Do(resquest)
 }
 
-var errors []error
-func contadorErroresApiZinc(err error){
-	errors = append(errors, err)
+
+var errorsHere []error
+func contadorErroresApiZinc(err error) {
+	errorsHere = append(errorsHere, err)
 }
 
-func GetErroresApiZinc() int{
-	total := len(errors)
+func GetErroresApiZinc() int {
+	total := len(errorsHere)
 	return total
 }
-

@@ -18,18 +18,17 @@ import (
 func SetupRouter() *chi.Mux {
 	router := chi.NewRouter()
 
-	// Configura CORS
+	//cors configuration
 	cors := cors.New(cors.Options{
-		// Ajusta los valores según tus necesidades
-		AllowedOrigins:   []string{"*"},                                       // Permitir todas las origins
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // Permite los métodos que desees
+		AllowedOrigins:   []string{"*"},                                       //accepts all origins
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // allows all methods
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300, // Máximo de tiempo en caché de la respuesta de pre-verificación CORS en segundos
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	})
 
-	// Usa el middleware CORS en tu router
+	// Use default configuration
 	router.Use(cors.Handler)
 
 	router.Get("/search", SearchHandler)
